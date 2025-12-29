@@ -740,12 +740,13 @@ export class SubscriptionDO extends DurableObject<Env> {
 
       // Fetch all repositories from GitHub API
       const repos: any[] = [];
-      let page = 1;
       const perPage = 100;
 
+      // First, fetch user's own repositories
+      let page = 1;
       while (true) {
         const response = await fetch(
-          `https://api.github.com/user/repos?per_page=${perPage}&page=${page}&affiliation=owner,organization_member&sort=pushed`,
+          `https://api.github.com/user/repos?per_page=${perPage}&page=${page}&affiliation=owner&sort=pushed`,
           {
             headers: {
               Authorization: `Bearer ${accessToken}`,
@@ -757,7 +758,7 @@ export class SubscriptionDO extends DurableObject<Env> {
 
         if (!response.ok) {
           console.error(
-            `Failed to fetch repos for ${username}: ${response.status}`,
+            `Failed to fetch user repos for ${username}: ${response.status}`,
           );
           return;
         }
@@ -767,9 +768,71 @@ export class SubscriptionDO extends DurableObject<Env> {
 
         repos.push(...pageRepos);
 
-        // If we got fewer than perPage repos, we're done
         if (pageRepos.length < perPage) break;
         page++;
+      }
+
+      // Fetch user's organizations
+      const orgs: any[] = [];
+      page = 1;
+      while (true) {
+        const response = await fetch(
+          `https://api.github.com/user/orgs?per_page=${perPage}&page=${page}`,
+          {
+            headers: {
+              Authorization: `Bearer ${accessToken}`,
+              Accept: "application/vnd.github.v3+json",
+              "User-Agent": "Context-Subscription/1.0",
+            },
+          },
+        );
+
+        if (!response.ok) {
+          console.error(
+            `Failed to fetch orgs for ${username}: ${response.status}`,
+          );
+          break; // Continue even if orgs fail
+        }
+
+        const pageOrgs = await response.json();
+        if (!Array.isArray(pageOrgs) || pageOrgs.length === 0) break;
+
+        orgs.push(...pageOrgs);
+
+        if (pageOrgs.length < perPage) break;
+        page++;
+      }
+
+      // Fetch all repos for each organization
+      for (const org of orgs) {
+        page = 1;
+        while (true) {
+          const response = await fetch(
+            `https://api.github.com/orgs/${org.login}/repos?per_page=${perPage}&page=${page}&sort=pushed`,
+            {
+              headers: {
+                Authorization: `Bearer ${accessToken}`,
+                Accept: "application/vnd.github.v3+json",
+                "User-Agent": "Context-Subscription/1.0",
+              },
+            },
+          );
+
+          if (!response.ok) {
+            console.error(
+              `Failed to fetch repos for org ${org.login}: ${response.status}`,
+            );
+            break; // Continue to next org
+          }
+
+          const pageRepos = await response.json();
+          if (!Array.isArray(pageRepos) || pageRepos.length === 0) break;
+
+          repos.push(...pageRepos);
+
+          if (pageRepos.length < perPage) break;
+          page++;
+        }
       }
 
       // Fetch all starred repositories
@@ -954,19 +1017,27 @@ export class SubscriptionDO extends DurableObject<Env> {
   private formatRepoInfo(repo: any): string {
     let info = `- **${repo.full_name}**`;
 
+    // Add star count
+    if (repo.stargazers_count !== undefined && repo.stargazers_count > 0) {
+      info += ` ⭐ ${repo.stargazers_count}`;
+    }
+
+    // Add description
     if (repo.description) {
-      info += `: ${repo.description}`;
+      info += ` - ${repo.description}`;
+    }
+
+    // Add homepage if present
+    if (repo.homepage) {
+      info += ` | Homepage: ${repo.homepage}`;
+    }
+
+    // Add tags/topics if present
+    if (repo.topics && repo.topics.length > 0) {
+      info += ` | Tags: ${repo.topics.join(", ")}`;
     }
 
     info += "\n";
-
-    if (repo.homepage) {
-      info += `  - Homepage: ${repo.homepage}\n`;
-    }
-
-    if (repo.topics && repo.topics.length > 0) {
-      info += `  - Tags: ${repo.topics.join(", ")}\n`;
-    }
 
     return info;
   }
