@@ -33,14 +33,13 @@
     <!-- Hero Section -->
     <div class="text-center mb-16">
       <h2 class="text-5xl font-bold mb-6 leading-tight">
-        Get Daily Context Updates<br>
+        Make Better Prompts,<br>
         <span class="bg-gradient-to-r from-purple-400 to-pink-600 bg-clip-text text-transparent">
-          For Your GitHub Profile
+          Save Time & API Costs
         </span>
       </h2>
-      <p class="text-xl text-gray-400 mb-8 max-w-2xl mx-auto">
-        Subscribe to receive comprehensive, automatically generated context about your GitHub repositories,
-        updated daily and accessible via a simple URL.
+      <p class="text-xl text-gray-400 mb-8 max-w-3xl mx-auto">
+        Get a high-level overview of all your GitHub repositories in one URL. Perfect for AI prompts - give AI assistants instant context about your projects without burning through API tokens on repository searches.
       </p>
       <a href="/login?redirect_to=/dashboard"
         class="inline-block bg-gradient-to-r from-purple-500 to-pink-500 hover:from-purple-600 hover:to-pink-600 px-8 py-4 rounded-lg font-semibold text-lg transition-colors">
@@ -54,40 +53,91 @@
         <div class="text-purple-400 mb-4">
           <svg class="w-12 h-12" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+              d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1" />
+          </svg>
+        </div>
+        <h3 class="text-xl font-semibold mb-2">Save API Costs</h3>
+        <p class="text-gray-400">
+          Stop wasting tokens on searching repos. One URL gives AI assistants all the context they need about your projects.
+        </p>
+      </div>
+
+      <div class="bg-purple-900/30 border border-purple-800 p-6 rounded-lg">
+        <div class="text-purple-400 mb-4">
+          <svg class="w-12 h-12" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+              d="M13 10V3L4 14h7v7l9-11h-7z" />
+          </svg>
+        </div>
+        <h3 class="text-xl font-semibold mb-2">Better Prompts</h3>
+        <p class="text-gray-400">
+          Organized overview of all your repos, starred projects, and org work. AI gets the full picture instantly.
+        </p>
+      </div>
+
+      <div class="bg-purple-900/30 border border-purple-800 p-6 rounded-lg">
+        <div class="text-purple-400 mb-4">
+          <svg class="w-12 h-12" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
               d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
           </svg>
         </div>
-        <h3 class="text-xl font-semibold mb-2">Daily Updates</h3>
+        <h3 class="text-xl font-semibold mb-2">Auto-Updated Daily</h3>
         <p class="text-gray-400">
-          Your context is automatically updated every day at 2 AM UTC with the latest information about your
-          repositories.
+          Fresh context every day at 2 AM UTC. Your AI always has the latest info about your repositories.
         </p>
       </div>
+    </div>
 
-      <div class="bg-purple-900/30 border border-purple-800 p-6 rounded-lg">
-        <div class="text-purple-400 mb-4">
-          <svg class="w-12 h-12" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-              d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1" />
-          </svg>
-        </div>
-        <h3 class="text-xl font-semibold mb-2">Simple URL</h3>
-        <p class="text-gray-400">
-          Access your context anytime at context.forgithub.com/yourusername - perfect for sharing with AI assistants.
-        </p>
-      </div>
+    <!-- Example Context -->
+    <div class="bg-purple-900/30 border border-purple-800 p-8 rounded-lg mb-16">
+      <h3 class="text-2xl font-bold mb-6 text-center">What Your Context Looks Like</h3>
+      <p class="text-gray-400 text-center mb-6 max-w-2xl mx-auto">
+        A clean, organized markdown overview of all your repositories - perfect for AI prompts
+      </p>
+      <div class="bg-black/50 p-6 rounded-lg overflow-x-auto">
+        <pre class="text-sm text-gray-300"><code># Context for username
 
-      <div class="bg-purple-900/30 border border-purple-800 p-6 rounded-lg">
-        <div class="text-purple-400 mb-4">
-          <svg class="w-12 h-12" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-              d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
-          </svg>
-        </div>
-        <h3 class="text-xl font-semibold mb-2">Comprehensive</h3>
-        <p class="text-gray-400">
-          Get organized context about all your repositories, including owned and forked repos with descriptions.
-        </p>
+Updated: 2025-12-29T10:00:00.000Z
+Total Repositories: 42
+
+## Own Repositories (15)
+
+### Updated in last 30 days (3)
+
+- **username/ai-chatbot**: Real-time AI chat application with streaming responses
+  - Homepage: https://chatbot.example.com
+  - Tags: ai, chatbot, nextjs, streaming
+
+- **username/context-for-github**: Daily GitHub context for better AI prompts
+  - Tags: github, ai, automation, cloudflare-workers
+
+### Updated in last 6 months (7)
+
+- **username/portfolio-site**: Personal portfolio built with React and Tailwind
+  - Homepage: https://example.com
+  - Tags: react, tailwind, portfolio
+
+...
+
+## Organization Repositories
+
+### acme-corp (12)
+
+- **acme-corp/api-gateway**: Central API gateway for all microservices
+  - Tags: api, gateway, kubernetes, microservices
+
+- **acme-corp/mobile-app**: React Native app for iOS and Android
+  - Tags: react-native, mobile, typescript
+
+...
+
+## Starred Repositories (15)
+
+- **anthropics/anthropic-sdk-typescript**: TypeScript SDK for Anthropic API
+  - Tags: anthropic, claude, sdk, typescript
+
+...</code></pre>
       </div>
     </div>
 
@@ -131,7 +181,7 @@
       <h3 class="text-3xl font-bold mb-8">Simple Pricing</h3>
       <div class="max-w-md mx-auto bg-purple-900/30 border border-purple-800 p-8 rounded-lg">
         <div class="text-5xl font-bold mb-2">$10<span class="text-2xl text-gray-400">/mo</span></div>
-        <p class="text-gray-400 mb-6">Everything you need</p>
+        <p class="text-gray-400 mb-6">Save hours and API costs every month</p>
         <ul class="text-left space-y-3 mb-8">
           <li class="flex items-center gap-2">
             <svg class="w-5 h-5 text-green-400" fill="currentColor" viewBox="0 0 20 20">
@@ -139,7 +189,7 @@
                 d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z"
                 clip-rule="evenodd" />
             </svg>
-            <span>Daily automated updates</span>
+            <span>Organized context for all repos + starred projects</span>
           </li>
           <li class="flex items-center gap-2">
             <svg class="w-5 h-5 text-green-400" fill="currentColor" viewBox="0 0 20 20">
@@ -147,7 +197,7 @@
                 d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z"
                 clip-rule="evenodd" />
             </svg>
-            <span>Public URL access</span>
+            <span>Simple URL - paste into any AI prompt</span>
           </li>
           <li class="flex items-center gap-2">
             <svg class="w-5 h-5 text-green-400" fill="currentColor" viewBox="0 0 20 20">
@@ -155,7 +205,7 @@
                 d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z"
                 clip-rule="evenodd" />
             </svg>
-            <span>All repositories included</span>
+            <span>Auto-updated daily at 2 AM UTC</span>
           </li>
           <li class="flex items-center gap-2">
             <svg class="w-5 h-5 text-green-400" fill="currentColor" viewBox="0 0 20 20">
@@ -163,7 +213,7 @@
                 d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z"
                 clip-rule="evenodd" />
             </svg>
-            <span>Cancel anytime</span>
+            <span>Cancel anytime, no questions asked</span>
           </li>
         </ul>
         <a href="/login?redirect_to=/dashboard"

@@ -1,3 +1,24 @@
+## More datapoints
+
+Datapoint Examples:
+
+- regular details
+- hosted domain (domain.forgithub.com)
+- usage stats
+- github oauth client sign-ins
+- openapi summary
+- SPEC.md
+- HACKERNEWS.md (what topics are relevant here?)
+- screenshot of homepage
+- cost
+- last deployment(s)
+- size (specifically, number of tokens)
+- links to useful views
+- links to take agentic actions
+- category stack (generated with LLM)
+- actions summary / success
+- logo of deployment provider
+
 ## Listening
 
 ❗️ We need a way to nicely request and store an access_token for watching from the dashboard.
