@@ -529,9 +529,12 @@ export default {
       <div class="bg-purple-900/30 border border-purple-800 p-6 rounded-lg">
         <div class="flex justify-between items-center mb-4">
           <h2 class="text-xl font-semibold">Your Context</h2>
-          <button onclick="copyContext()" class="bg-purple-700 hover:bg-purple-600 px-4 py-2 rounded-lg transition-colors">
-            Copy to Clipboard
-          </button>
+          <div class="flex items-center gap-3">
+            <span class="text-gray-400 text-sm" id="token-count"></span>
+            <button onclick="copyContext()" class="bg-purple-700 hover:bg-purple-600 px-4 py-2 rounded-lg transition-colors">
+              Copy to Clipboard
+            </button>
+          </div>
         </div>
         <pre id="context" class="bg-black/50 p-4 rounded overflow-x-auto text-sm">${context
           .replace(/</g, "&lt;")
@@ -558,6 +561,16 @@ export default {
     }
 
     <script>
+      function updateTokenCount() {
+        const contextElement = document.getElementById('context');
+        const tokenCountElement = document.getElementById('token-count');
+        if (contextElement && tokenCountElement) {
+          const text = contextElement.textContent;
+          const tokenCount = Math.round(text.length / 5);
+          tokenCountElement.textContent = tokenCount.toLocaleString() + ' tokens';
+        }
+      }
+
       function copyContext() {
         const text = document.getElementById('context').textContent;
         navigator.clipboard.writeText(text).then(() => {
@@ -578,6 +591,9 @@ export default {
           alert('Error: ' + error.message);
         }
       }
+
+      // Update token count on page load
+      updateTokenCount();
     </script>
   </main>
 </body>
