@@ -435,6 +435,30 @@ export default {
       });
     }
 
+    // API: Get raw context by UUID (public endpoint)
+    if (path.startsWith("/api/context/") && path.endsWith("/raw")) {
+      const uuid = path.split("/")[3];
+      if (!uuid) {
+        return new Response("Invalid UUID", { status: 400 });
+      }
+
+      const stub = env.SubscriptionDO.get(
+        env.SubscriptionDO.idFromName(DO_NAME),
+      );
+      const context = await stub.getContextByUUID(uuid);
+
+      if (!context) {
+        return new Response("Context not found", { status: 404 });
+      }
+
+      return new Response(context, {
+        headers: {
+          "Content-Type": "text/markdown; charset=utf-8",
+          "Access-Control-Allow-Origin": "*",
+        },
+      });
+    }
+
     // Dashboard (requires auth)
     if (path === "/dashboard") {
       const user = getCurrentUser(request);
@@ -447,19 +471,23 @@ export default {
         });
       }
 
+      const accessToken = getAccessToken(request);
+      if (!accessToken) {
+        return new Response(null, {
+          status: 302,
+          headers: { Location: "/login?redirect_to=/dashboard" },
+        });
+      }
+
       const stub = env.SubscriptionDO.get(
         env.SubscriptionDO.idFromName(DO_NAME),
       );
 
-      // Always store/update user and access token on dashboard visit
-      const accessToken = getAccessToken(request);
-      if (accessToken) {
-        await stub.upsertUser(user.login, accessToken);
-      }
-
-      const isSubscribed = await stub.isSubscribed(user.login);
-
-      const context = isSubscribed ? await stub.getContext(user.login) : null;
+      // Single DO call to get all dashboard data
+      const { isSubscribed, context, contextUUID } = await stub.getDashboardData(
+        user.login,
+        accessToken,
+      );
 
       const paymentLink = `${
         env.STRIPE_PAYMENT_LINK
@@ -524,21 +552,141 @@ export default {
     </div>
 
     ${
-      context
+      context && contextUUID
         ? `
       <div class="bg-purple-900/30 border border-purple-800 p-6 rounded-lg">
         <div class="flex justify-between items-center mb-4">
           <h2 class="text-xl font-semibold">Your Context</h2>
           <div class="flex items-center gap-3">
             <span class="text-gray-400 text-sm" id="token-count"></span>
+            <a href="${
+              url.origin
+            }/api/context/${contextUUID}/raw" target="_blank" class="text-purple-400 hover:text-purple-300 text-sm flex items-center gap-1">
+              <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"></path>
+              </svg>
+              Open as raw markdown
+            </a>
             <button onclick="copyContext()" class="bg-purple-700 hover:bg-purple-600 px-4 py-2 rounded-lg transition-colors">
               Copy to Clipboard
             </button>
           </div>
         </div>
-        <pre id="context" class="bg-black/50 p-4 rounded overflow-x-auto text-sm">${context
+        <textarea id="context" readonly class="w-full bg-black/50 p-4 rounded text-sm font-mono resize-y border border-purple-700/50 focus:outline-none focus:border-purple-500" rows="8">${context
           .replace(/</g, "&lt;")
-          .replace(/>/g, "&gt;")}</pre>
+          .replace(/>/g, "&gt;")}</textarea>
+
+        <div class="mt-6">
+          <h3 class="text-lg font-semibold mb-3">Prompt Examples</h3>
+          <p class="text-gray-400 text-sm mb-3">Use your context with AI assistants:</p>
+          <div class="space-y-3">
+            <div class="bg-black/50 p-3 rounded">
+              <div class="text-sm text-gray-300 mb-2">Make a portfolio website in HTML about my work</div>
+              <div class="flex gap-2">
+                <button onclick="copyPrompt('make a portfolio website in html about my work')" class="flex-1 bg-purple-700 hover:bg-purple-600 px-3 py-2 rounded text-xs transition-colors flex items-center justify-center gap-1">
+                  <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"></path>
+                  </svg>
+                  Copy
+                </button>
+                <a href="https://chatgpt.com/?hints=search&q=${encodeURIComponent(
+                  "Read from " +
+                    url.origin +
+                    "/api/context/" +
+                    contextUUID +
+                    "/raw then make a portfolio website in html about my work",
+                )}" target="_blank" class="flex-1 bg-green-700 hover:bg-green-600 px-3 py-2 rounded text-xs transition-colors flex items-center justify-center gap-1">
+                  <svg class="w-4 h-4" viewBox="0 0 24 24" fill="currentColor">
+                    <path d="M22.282 9.821a5.985 5.985 0 0 0-.516-4.91 6.046 6.046 0 0 0-6.51-2.9A6.065 6.065 0 0 0 4.981 4.18a5.985 5.985 0 0 0-3.998 2.9 6.046 6.046 0 0 0 .743 7.097 5.98 5.98 0 0 0 .51 4.911 6.051 6.051 0 0 0 6.515 2.9A5.985 5.985 0 0 0 13.26 24a6.056 6.056 0 0 0 5.772-4.206 5.99 5.99 0 0 0 3.997-2.9 6.056 6.056 0 0 0-.747-7.073zM13.26 22.43a4.476 4.476 0 0 1-2.876-1.04l.141-.081 4.779-2.758a.795.795 0 0 0 .392-.681v-6.737l2.02 1.168a.071.071 0 0 1 .038.052v5.583a4.504 4.504 0 0 1-4.494 4.494zM3.6 18.304a4.47 4.47 0 0 1-.535-3.014l.142.085 4.783 2.759a.771.771 0 0 0 .78 0l5.843-3.369v2.332a.08.08 0 0 1-.033.062L9.74 19.95a4.5 4.5 0 0 1-6.14-1.646zM2.34 7.896a4.485 4.485 0 0 1 2.366-1.973V11.6a.766.766 0 0 0 .388.676l5.815 3.355-2.02 1.168a.076.076 0 0 1-.071 0l-4.83-2.786A4.504 4.504 0 0 1 2.34 7.872zm16.597 3.855l-5.833-3.387L15.119 7.2a.076.076 0 0 1 .071 0l4.83 2.791a4.494 4.494 0 0 1-.676 8.105v-5.678a.79.79 0 0 0-.407-.667zm2.01-3.023l-.141-.085-4.774-2.782a.776.776 0 0 0-.785 0L9.409 9.23V6.897a.066.066 0 0 1 .028-.061l4.83-2.787a4.5 4.5 0 0 1 6.68 4.66zm-12.64 4.135l-2.02-1.164a.08.08 0 0 1-.038-.057V6.075a4.5 4.5 0 0 1 7.375-3.453l-.142.08L8.704 5.46a.795.795 0 0 0-.393.681zm1.097-2.365l2.602-1.5 2.607 1.5v2.999l-2.597 1.5-2.607-1.5z"/>
+                  </svg>
+                  ChatGPT
+                </a>
+                <a href="https://claude.ai/new?q=${encodeURIComponent(
+                  "Read from " +
+                    url.origin +
+                    "/api/context/" +
+                    contextUUID +
+                    "/raw then make a portfolio website in html about my work",
+                )}" target="_blank" class="flex-1 bg-orange-700 hover:bg-orange-600 px-3 py-2 rounded text-xs transition-colors flex items-center justify-center gap-1">
+                  <svg class="w-4 h-4" viewBox="0 0 24 24" fill="currentColor">
+                    <path d="M19.5 2h-15A2.5 2.5 0 0 0 2 4.5v15A2.5 2.5 0 0 0 4.5 22h15a2.5 2.5 0 0 0 2.5-2.5v-15A2.5 2.5 0 0 0 19.5 2zm-7.5 16c-3.31 0-6-2.69-6-6s2.69-6 6-6 6 2.69 6 6-2.69 6-6 6zm0-10c-2.21 0-4 1.79-4 4s1.79 4 4 4 4-1.79 4-4-1.79-4-4-4z"/>
+                  </svg>
+                  Claude
+                </a>
+              </div>
+            </div>
+            <div class="bg-black/50 p-3 rounded">
+              <div class="text-sm text-gray-300 mb-2">Come up with monetization ideas for some of my projects</div>
+              <div class="flex gap-2">
+                <button onclick="copyPrompt('come up with monetization ideas for some of my projects')" class="flex-1 bg-purple-700 hover:bg-purple-600 px-3 py-2 rounded text-xs transition-colors flex items-center justify-center gap-1">
+                  <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"></path>
+                  </svg>
+                  Copy
+                </button>
+                <a href="https://chatgpt.com/?hints=search&q=${encodeURIComponent(
+                  "Read from " +
+                    url.origin +
+                    "/api/context/" +
+                    contextUUID +
+                    "/raw then come up with monetization ideas for some of my projects",
+                )}" target="_blank" class="flex-1 bg-green-700 hover:bg-green-600 px-3 py-2 rounded text-xs transition-colors flex items-center justify-center gap-1">
+                  <svg class="w-4 h-4" viewBox="0 0 24 24" fill="currentColor">
+                    <path d="M22.282 9.821a5.985 5.985 0 0 0-.516-4.91 6.046 6.046 0 0 0-6.51-2.9A6.065 6.065 0 0 0 4.981 4.18a5.985 5.985 0 0 0-3.998 2.9 6.046 6.046 0 0 0 .743 7.097 5.98 5.98 0 0 0 .51 4.911 6.051 6.051 0 0 0 6.515 2.9A5.985 5.985 0 0 0 13.26 24a6.056 6.056 0 0 0 5.772-4.206 5.99 5.99 0 0 0 3.997-2.9 6.056 6.056 0 0 0-.747-7.073zM13.26 22.43a4.476 4.476 0 0 1-2.876-1.04l.141-.081 4.779-2.758a.795.795 0 0 0 .392-.681v-6.737l2.02 1.168a.071.071 0 0 1 .038.052v5.583a4.504 4.504 0 0 1-4.494 4.494zM3.6 18.304a4.47 4.47 0 0 1-.535-3.014l.142.085 4.783 2.759a.771.771 0 0 0 .78 0l5.843-3.369v2.332a.08.08 0 0 1-.033.062L9.74 19.95a4.5 4.5 0 0 1-6.14-1.646zM2.34 7.896a4.485 4.485 0 0 1 2.366-1.973V11.6a.766.766 0 0 0 .388.676l5.815 3.355-2.02 1.168a.076.076 0 0 1-.071 0l-4.83-2.786A4.504 4.504 0 0 1 2.34 7.872zm16.597 3.855l-5.833-3.387L15.119 7.2a.076.076 0 0 1 .071 0l4.83 2.791a4.494 4.494 0 0 1-.676 8.105v-5.678a.79.79 0 0 0-.407-.667zm2.01-3.023l-.141-.085-4.774-2.782a.776.776 0 0 0-.785 0L9.409 9.23V6.897a.066.066 0 0 1 .028-.061l4.83-2.787a4.5 4.5 0 0 1 6.68 4.66zm-12.64 4.135l-2.02-1.164a.08.08 0 0 1-.038-.057V6.075a4.5 4.5 0 0 1 7.375-3.453l-.142.08L8.704 5.46a.795.795 0 0 0-.393.681zm1.097-2.365l2.602-1.5 2.607 1.5v2.999l-2.597 1.5-2.607-1.5z"/>
+                  </svg>
+                  ChatGPT
+                </a>
+                <a href="https://claude.ai/new?q=${encodeURIComponent(
+                  "Read from " +
+                    url.origin +
+                    "/api/context/" +
+                    contextUUID +
+                    "/raw then come up with monetization ideas for some of my projects",
+                )}" target="_blank" class="flex-1 bg-orange-700 hover:bg-orange-600 px-3 py-2 rounded text-xs transition-colors flex items-center justify-center gap-1">
+                  <svg class="w-4 h-4" viewBox="0 0 24 24" fill="currentColor">
+                    <path d="M19.5 2h-15A2.5 2.5 0 0 0 2 4.5v15A2.5 2.5 0 0 0 4.5 22h15a2.5 2.5 0 0 0 2.5-2.5v-15A2.5 2.5 0 0 0 19.5 2zm-7.5 16c-3.31 0-6-2.69-6-6s2.69-6 6-6 6 2.69 6 6-2.69 6-6 6zm0-10c-2.21 0-4 1.79-4 4s1.79 4 4 4 4-1.79 4-4-1.79-4-4-4z"/>
+                  </svg>
+                  Claude
+                </a>
+              </div>
+            </div>
+            <div class="bg-black/50 p-3 rounded">
+              <div class="text-sm text-gray-300 mb-2">Come up with good opportunities for some of my projects to make it into a business</div>
+              <div class="flex gap-2">
+                <button onclick="copyPrompt('come up with good opportunities for some of my projects to make it into a business')" class="flex-1 bg-purple-700 hover:bg-purple-600 px-3 py-2 rounded text-xs transition-colors flex items-center justify-center gap-1">
+                  <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"></path>
+                  </svg>
+                  Copy
+                </button>
+                <a href="https://chatgpt.com/?hints=search&q=${encodeURIComponent(
+                  "Read from " +
+                    url.origin +
+                    "/api/context/" +
+                    contextUUID +
+                    "/raw then come up with good opportunities for some of my projects to make it into a business",
+                )}" target="_blank" class="flex-1 bg-green-700 hover:bg-green-600 px-3 py-2 rounded text-xs transition-colors flex items-center justify-center gap-1">
+                  <svg class="w-4 h-4" viewBox="0 0 24 24" fill="currentColor">
+                    <path d="M22.282 9.821a5.985 5.985 0 0 0-.516-4.91 6.046 6.046 0 0 0-6.51-2.9A6.065 6.065 0 0 0 4.981 4.18a5.985 5.985 0 0 0-3.998 2.9 6.046 6.046 0 0 0 .743 7.097 5.98 5.98 0 0 0 .51 4.911 6.051 6.051 0 0 0 6.515 2.9A5.985 5.985 0 0 0 13.26 24a6.056 6.056 0 0 0 5.772-4.206 5.99 5.99 0 0 0 3.997-2.9 6.056 6.056 0 0 0-.747-7.073zM13.26 22.43a4.476 4.476 0 0 1-2.876-1.04l.141-.081 4.779-2.758a.795.795 0 0 0 .392-.681v-6.737l2.02 1.168a.071.071 0 0 1 .038.052v5.583a4.504 4.504 0 0 1-4.494 4.494zM3.6 18.304a4.47 4.47 0 0 1-.535-3.014l.142.085 4.783 2.759a.771.771 0 0 0 .78 0l5.843-3.369v2.332a.08.08 0 0 1-.033.062L9.74 19.95a4.5 4.5 0 0 1-6.14-1.646zM2.34 7.896a4.485 4.485 0 0 1 2.366-1.973V11.6a.766.766 0 0 0 .388.676l5.815 3.355-2.02 1.168a.076.076 0 0 1-.071 0l-4.83-2.786A4.504 4.504 0 0 1 2.34 7.872zm16.597 3.855l-5.833-3.387L15.119 7.2a.076.076 0 0 1 .071 0l4.83 2.791a4.494 4.494 0 0 1-.676 8.105v-5.678a.79.79 0 0 0-.407-.667zm2.01-3.023l-.141-.085-4.774-2.782a.776.776 0 0 0-.785 0L9.409 9.23V6.897a.066.066 0 0 1 .028-.061l4.83-2.787a4.5 4.5 0 0 1 6.68 4.66zm-12.64 4.135l-2.02-1.164a.08.08 0 0 1-.038-.057V6.075a4.5 4.5 0 0 1 7.375-3.453l-.142.08L8.704 5.46a.795.795 0 0 0-.393.681zm1.097-2.365l2.602-1.5 2.607 1.5v2.999l-2.597 1.5-2.607-1.5z"/>
+                  </svg>
+                  ChatGPT
+                </a>
+                <a href="https://claude.ai/new?q=${encodeURIComponent(
+                  "Read from " +
+                    url.origin +
+                    "/api/context/" +
+                    contextUUID +
+                    "/raw then come up with good opportunities for some of my projects to make it into a business",
+                )}" target="_blank" class="flex-1 bg-orange-700 hover:bg-orange-600 px-3 py-2 rounded text-xs transition-colors flex items-center justify-center gap-1">
+                  <svg class="w-4 h-4" viewBox="0 0 24 24" fill="currentColor">
+                    <path d="M19.5 2h-15A2.5 2.5 0 0 0 2 4.5v15A2.5 2.5 0 0 0 4.5 22h15a2.5 2.5 0 0 0 2.5-2.5v-15A2.5 2.5 0 0 0 19.5 2zm-7.5 16c-3.31 0-6-2.69-6-6s2.69-6 6-6 6 2.69 6 6-2.69 6-6 6zm0-10c-2.21 0-4 1.79-4 4s1.79 4 4 4 4-1.79 4-4-1.79-4-4-4z"/>
+                  </svg>
+                  Claude
+                </a>
+              </div>
+            </div>
+          </div>
+        </div>
       </div>
     `
         : isSubscribed
@@ -561,6 +709,8 @@ export default {
     }
 
     <script>
+      const contextUrl = '${url.origin}/api/context/${contextUUID || ""}/raw';
+
       function updateTokenCount() {
         const contextElement = document.getElementById('context');
         const tokenCountElement = document.getElementById('token-count');
@@ -575,6 +725,13 @@ export default {
         const text = document.getElementById('context').textContent;
         navigator.clipboard.writeText(text).then(() => {
           alert('Context copied to clipboard!');
+        });
+      }
+
+      function copyPrompt(prompt) {
+        const fullPrompt = 'Read from ' + contextUrl + ' then ' + prompt;
+        navigator.clipboard.writeText(fullPrompt).then(() => {
+          alert('Prompt copied to clipboard!');
         });
       }
 
@@ -633,9 +790,14 @@ export class SubscriptionDO extends DurableObject<Env> {
         access_token TEXT,
         context TEXT,
         context_updated_at INTEGER,
-        stripe_customer_id TEXT
+        stripe_customer_id TEXT,
+        context_uuid TEXT
       )
     `);
+  }
+
+  private generateUUID(): string {
+    return crypto.randomUUID();
   }
 
   async addSubscription(
@@ -644,16 +806,40 @@ export class SubscriptionDO extends DurableObject<Env> {
     stripeCustomerId?: string,
   ): Promise<void> {
     const now = Date.now();
-    // User already exists from dashboard visit, just update with subscription details
-    this.sql.exec(
-      `UPDATE subscriptions
-       SET email = ?, subscribed_at = ?, stripe_customer_id = ?, context_updated_at = 0
-       WHERE username = ?`,
-      email,
-      now,
-      stripeCustomerId || null,
+
+    // Check if user has a UUID, if not generate one
+    const result = this.sql.exec(
+      "SELECT context_uuid FROM subscriptions WHERE username = ?",
       username,
     );
+    const rows = result.toArray();
+    const hasUUID = rows.length > 0 && (rows[0] as any).context_uuid;
+
+    if (!hasUUID) {
+      const uuid = this.generateUUID();
+      this.sql.exec(
+        `UPDATE subscriptions
+         SET email = ?, subscribed_at = ?, stripe_customer_id = ?, context_updated_at = 0, context_uuid = ?
+         WHERE username = ?`,
+        email,
+        now,
+        stripeCustomerId || null,
+        uuid,
+        username,
+      );
+    } else {
+      // User already exists from dashboard visit, just update with subscription details
+      this.sql.exec(
+        `UPDATE subscriptions
+         SET email = ?, subscribed_at = ?, stripe_customer_id = ?, context_updated_at = 0
+         WHERE username = ?`,
+        email,
+        now,
+        stripeCustomerId || null,
+        username,
+      );
+    }
+
     // Trigger initial context calculation - access_token already exists
     await this.updateContext(username);
   }
@@ -700,14 +886,74 @@ export class SubscriptionDO extends DurableObject<Env> {
   }
 
   async upsertUser(username: string, accessToken: string): Promise<void> {
+    const uuid = this.generateUUID();
     // Insert user if not exists, or update access token if exists
     this.sql.exec(
-      `INSERT INTO subscriptions (username, access_token, context_updated_at)
-       VALUES (?, ?, 0)
+      `INSERT INTO subscriptions (username, access_token, context_updated_at, context_uuid)
+       VALUES (?, ?, 0, ?)
        ON CONFLICT(username) DO UPDATE SET access_token = excluded.access_token`,
       username,
       accessToken,
+      uuid,
     );
+  }
+
+  async getContextUUID(username: string): Promise<string | null> {
+    const result = this.sql.exec(
+      "SELECT context_uuid FROM subscriptions WHERE username = ?",
+      username,
+    );
+    const rows = result.toArray();
+    return rows.length > 0 ? (rows[0] as any).context_uuid : null;
+  }
+
+  async getDashboardData(
+    username: string,
+    accessToken: string,
+  ): Promise<{
+    isSubscribed: boolean;
+    context: string | null;
+    contextUUID: string | null;
+  }> {
+    // Upsert user with access token
+    const uuid = this.generateUUID();
+    this.sql.exec(
+      `INSERT INTO subscriptions (username, access_token, context_updated_at, context_uuid)
+       VALUES (?, ?, 0, ?)
+       ON CONFLICT(username) DO UPDATE SET access_token = excluded.access_token`,
+      username,
+      accessToken,
+      uuid,
+    );
+
+    // Get all dashboard data in one query
+    const result = this.sql.exec(
+      `SELECT
+        CASE WHEN subscribed_at IS NOT NULL AND subscribed_at > 0 THEN 1 ELSE 0 END as is_subscribed,
+        context,
+        context_uuid
+       FROM subscriptions WHERE username = ?`,
+      username,
+    );
+    const rows = result.toArray();
+    if (rows.length === 0) {
+      return { isSubscribed: false, context: null, contextUUID: null };
+    }
+    const row = rows[0] as any;
+    return {
+      isSubscribed: row.is_subscribed === 1,
+      context: row.context,
+      contextUUID: row.context_uuid,
+    };
+  }
+
+  async getContextByUUID(uuid: string): Promise<string | null> {
+    const result = this.sql.exec(
+      "SELECT context FROM subscriptions WHERE context_uuid = ?",
+      uuid,
+    );
+    const rows = result.toArray();
+    return rows.length > 0 ? (rows[0] as any).context : null;
   }
 
   async updateAllContexts(): Promise<void> {
