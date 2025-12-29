@@ -12,8 +12,10 @@ export interface Env {
   SubscriptionDO: DurableObjectNamespace<SubscriptionDO>;
 }
 
+const DO_NAME = "global";
+
 // ============================================================================
-// GitHub OAuth Middleware (adapted from smootherauth-github)
+// GitHub OAuth Middleware
 // ============================================================================
 
 interface OAuthState {
@@ -256,7 +258,7 @@ async function handleStripeWebhook(
   }
 
   const stripe = new Stripe(env.STRIPE_SECRET, {
-    apiVersion: "2025-01-27.acacia",
+    apiVersion: "2025-12-15.clover",
   });
 
   const rawBody = await streamToBuffer(request.body);
@@ -272,7 +274,7 @@ async function handleStripeWebhook(
   let event: Stripe.Event;
   try {
     // Verify webhook signature using Stripe SDK
-    event = stripe.webhooks.constructEvent(
+    event = await stripe.webhooks.constructEventAsync(
       rawBodyString,
       stripeSignature,
       env.STRIPE_WEBHOOK_SIGNING_SECRET,
@@ -298,13 +300,12 @@ async function handleStripeWebhook(
     }
 
     if (session.payment_status !== "paid" || !session.amount_total) {
-      return new Response(
-        JSON.stringify({ error: "Payment not completed" }),
-        { status: 400 },
-      );
+      return new Response(JSON.stringify({ error: "Payment not completed" }), {
+        status: 400,
+      });
     }
 
-    const { client_reference_id, customer_details } = session;
+    const { client_reference_id, customer_details, customer } = session;
     if (!client_reference_id || !customer_details?.email) {
       return new Response(
         JSON.stringify({ error: "Missing required fields" }),
@@ -312,13 +313,39 @@ async function handleStripeWebhook(
       );
     }
 
-    const stub = env.SubscriptionDO.get(
-      env.SubscriptionDO.idFromName("subscriptions"),
+    const stub = env.SubscriptionDO.get(env.SubscriptionDO.idFromName(DO_NAME));
+    await stub.addSubscription(
+      client_reference_id,
+      customer_details.email,
+      customer as string,
     );
-    await stub.addSubscription(client_reference_id, customer_details.email);
 
     return new Response(
       JSON.stringify({ received: true, message: "Payment processed" }),
+      { status: 200 },
+    );
+  }
+
+  // Handle customer.subscription.deleted event
+  if (event.type === "customer.subscription.deleted") {
+    const subscription = event.data.object as Stripe.Subscription;
+
+    // Get customer details to find the username
+    const customer = await stripe.customers.retrieve(subscription.customer as string);
+
+    if (customer.deleted) {
+      return new Response(
+        JSON.stringify({ received: true, message: "Customer already deleted" }),
+        { status: 200 },
+      );
+    }
+
+    // Find subscription by customer email
+    const stub = env.SubscriptionDO.get(env.SubscriptionDO.idFromName(DO_NAME));
+    await stub.removeSubscriptionByEmail(customer.email || "");
+
+    return new Response(
+      JSON.stringify({ received: true, message: "Subscription removed" }),
       { status: 200 },
     );
   }
@@ -367,26 +394,44 @@ export default {
       });
     }
 
-    // Public context endpoint (exclude root path, api paths, and static assets)
-    const contextMatch = path.match(/^\/([^\/]+)$/);
-    if (contextMatch && !path.startsWith('/api/') && path !== '/') {
-      const username = contextMatch[1];
-      const stub = env.SubscriptionDO.get(
-        env.SubscriptionDO.idFromName("subscriptions"),
-      );
-      const context = await stub.getContext(username);
-
-      if (!context) {
-        return new Response("User not subscribed or context not available", {
-          status: 404,
+    // API: Create Stripe customer portal session
+    if (path === "/api/create-portal-session") {
+      const user = getCurrentUser(request);
+      if (!user) {
+        return new Response(JSON.stringify({ error: "Not authenticated" }), {
+          status: 401,
+          headers: { "Content-Type": "application/json" },
         });
       }
 
-      return new Response(context, {
-        headers: { "Content-Type": "text/markdown" },
+      const stub = env.SubscriptionDO.get(
+        env.SubscriptionDO.idFromName(DO_NAME),
+      );
+      const customerId = await stub.getStripeCustomerId(user.login);
+
+      if (!customerId) {
+        return new Response(JSON.stringify({ error: "No subscription found" }), {
+          status: 404,
+          headers: { "Content-Type": "application/json" },
+        });
+      }
+
+      const stripe = new Stripe(env.STRIPE_SECRET, {
+        apiVersion: "2025-12-15.clover",
+      });
+
+      const session = await stripe.billingPortal.sessions.create({
+        customer: customerId,
+        return_url: `${url.origin}/dashboard`,
+      });
+
+      return new Response(JSON.stringify({ url: session.url }), {
+        headers: { "Content-Type": "application/json" },
       });
     }
 
+    // Public context endpoint (exclude root path, api paths, and static assets)
+    const contextMatch = path.match(/^\/([^\/]+)$/);
     // Dashboard (requires auth)
     if (path === "/dashboard") {
       const user = getCurrentUser(request);
@@ -400,7 +445,7 @@ export default {
       }
 
       const stub = env.SubscriptionDO.get(
-        env.SubscriptionDO.idFromName("subscriptions"),
+        env.SubscriptionDO.idFromName(DO_NAME),
       );
       const isSubscribed = await stub.isSubscribed(user.login);
 
@@ -457,6 +502,9 @@ export default {
           <span class="font-medium">Active Subscription</span>
         </div>
         <p class="text-gray-400 mb-4">$10/month - Updates daily at 2 AM UTC</p>
+        <button onclick="manageSubscription()" class="bg-purple-700 hover:bg-purple-600 px-6 py-3 rounded-lg font-medium transition-colors">
+          Manage Subscription
+        </button>
       `
           : `
         <div class="flex items-center gap-2 text-yellow-400 mb-4">
@@ -494,17 +542,48 @@ export default {
           .replace(/</g, "&lt;")
           .replace(/>/g, "&gt;")}</pre>
       </div>
-      <script>
-        function copyContext() {
-          const text = document.getElementById('context').textContent;
-          navigator.clipboard.writeText(text).then(() => {
-            alert('Context copied to clipboard!');
-          });
-        }
-      </script>
     `
-        : ""
+        : isSubscribed
+          ? `
+      <div class="bg-purple-900/30 border border-purple-800 p-6 rounded-lg">
+        <div class="flex items-center gap-3 mb-4">
+          <svg class="w-8 h-8 text-purple-400 animate-spin" fill="none" viewBox="0 0 24 24">
+            <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+            <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+          </svg>
+          <div>
+            <h2 class="text-xl font-semibold">Context Loading...</h2>
+            <p class="text-gray-400">Your context is being generated. This may take a few moments.</p>
+          </div>
+        </div>
+        <p class="text-sm text-gray-500">Refresh this page in a minute to see your context.</p>
+      </div>
+    `
+          : ""
     }
+
+    <script>
+      function copyContext() {
+        const text = document.getElementById('context').textContent;
+        navigator.clipboard.writeText(text).then(() => {
+          alert('Context copied to clipboard!');
+        });
+      }
+
+      async function manageSubscription() {
+        try {
+          const response = await fetch('/api/create-portal-session');
+          const data = await response.json();
+          if (data.url) {
+            window.location.href = data.url;
+          } else {
+            alert('Failed to create portal session');
+          }
+        } catch (error) {
+          alert('Error: ' + error.message);
+        }
+      }
+    </script>
   </main>
 </body>
 </html>`;
@@ -512,17 +591,29 @@ export default {
       return new Response(html, { headers: { "Content-Type": "text/html" } });
     }
 
+    if (contextMatch && !path.startsWith("/api/") && path !== "/") {
+      const username = contextMatch[1];
+      const stub = env.SubscriptionDO.get(
+        env.SubscriptionDO.idFromName(DO_NAME),
+      );
+      const context = await stub.getContext(username);
+
+      if (!context) {
+        return new Response("User not subscribed or context not available", {
+          status: 404,
+        });
+      }
+
+      return new Response(context, {
+        headers: { "Content-Type": "text/markdown" },
+      });
+    }
+
     return new Response("Not Found", { status: 404 });
   },
 
-  async scheduled(
-    event: ScheduledEvent,
-    env: Env,
-    ctx: ExecutionContext,
-  ): Promise<void> {
-    const stub = env.SubscriptionDO.get(
-      env.SubscriptionDO.idFromName("subscriptions"),
-    );
+  async scheduled(event, env: Env, ctx: ExecutionContext): Promise<void> {
+    const stub = env.SubscriptionDO.get(env.SubscriptionDO.idFromName(DO_NAME));
     await stub.updateAllContexts();
   },
 } satisfies ExportedHandler<Env>;
@@ -548,20 +639,31 @@ export class SubscriptionDO extends DurableObject<Env> {
         subscribed_at INTEGER NOT NULL,
         access_token TEXT,
         context TEXT,
-        context_updated_at INTEGER
+        context_updated_at INTEGER,
+        stripe_customer_id TEXT
       )
     `);
   }
 
-  async addSubscription(username: string, email: string): Promise<void> {
+  async addSubscription(username: string, email: string, stripeCustomerId?: string): Promise<void> {
     const now = Date.now();
     this.sql.exec(
-      `INSERT OR REPLACE INTO subscriptions (username, email, subscribed_at, context_updated_at) 
-       VALUES (?, ?, ?, ?)`,
+      `INSERT OR REPLACE INTO subscriptions (username, email, subscribed_at, context_updated_at, stripe_customer_id)
+       VALUES (?, ?, ?, ?, ?)`,
       username,
       email,
       now,
       0,
+      stripeCustomerId || null,
+    );
+    // Trigger initial context calculation
+    await this.updateContext(username);
+  }
+
+  async removeSubscriptionByEmail(email: string): Promise<void> {
+    this.sql.exec(
+      "DELETE FROM subscriptions WHERE email = ?",
+      email,
     );
   }
 
@@ -573,6 +675,15 @@ export class SubscriptionDO extends DurableObject<Env> {
     return result.toArray().length > 0;
   }
 
+  async getStripeCustomerId(username: string): Promise<string | null> {
+    const result = this.sql.exec(
+      "SELECT stripe_customer_id FROM subscriptions WHERE username = ?",
+      username,
+    );
+    const rows = result.toArray();
+    return rows.length > 0 ? (rows[0] as any).stripe_customer_id : null;
+  }
+
   async getContext(username: string): Promise<string | null> {
     const result = this.sql.exec(
       "SELECT context FROM subscriptions WHERE username = ?",
@@ -582,7 +693,10 @@ export class SubscriptionDO extends DurableObject<Env> {
     return rows.length > 0 ? (rows[0] as any).context : null;
   }
 
-  async updateAccessToken(username: string, accessToken: string): Promise<void> {
+  async updateAccessToken(
+    username: string,
+    accessToken: string,
+  ): Promise<void> {
     this.sql.exec(
       "UPDATE subscriptions SET access_token = ? WHERE username = ?",
       accessToken,
@@ -636,7 +750,9 @@ export class SubscriptionDO extends DurableObject<Env> {
         );
 
         if (!response.ok) {
-          console.error(`Failed to fetch repos for ${username}: ${response.status}`);
+          console.error(
+            `Failed to fetch repos for ${username}: ${response.status}`,
+          );
           return;
         }
 
