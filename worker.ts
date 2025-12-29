@@ -12,7 +12,7 @@ export interface Env {
   SubscriptionDO: DurableObjectNamespace<SubscriptionDO>;
 }
 
-const DO_NAME = "global";
+const DO_NAME = "global6";
 
 // ============================================================================
 // GitHub OAuth Middleware
@@ -331,7 +331,9 @@ async function handleStripeWebhook(
     const subscription = event.data.object as Stripe.Subscription;
 
     // Get customer details to find the username
-    const customer = await stripe.customers.retrieve(subscription.customer as string);
+    const customer = await stripe.customers.retrieve(
+      subscription.customer as string,
+    );
 
     if (customer.deleted) {
       return new Response(
@@ -410,10 +412,13 @@ export default {
       const customerId = await stub.getStripeCustomerId(user.login);
 
       if (!customerId) {
-        return new Response(JSON.stringify({ error: "No subscription found" }), {
-          status: 404,
-          headers: { "Content-Type": "application/json" },
-        });
+        return new Response(
+          JSON.stringify({ error: "No subscription found" }),
+          {
+            status: 404,
+            headers: { "Content-Type": "application/json" },
+          },
+        );
       }
 
       const stripe = new Stripe(env.STRIPE_SECRET, {
@@ -430,8 +435,6 @@ export default {
       });
     }
 
-    // Public context endpoint (exclude root path, api paths, and static assets)
-    const contextMatch = path.match(/^\/([^\/]+)$/);
     // Dashboard (requires auth)
     if (path === "/dashboard") {
       const user = getCurrentUser(request);
@@ -447,15 +450,14 @@ export default {
       const stub = env.SubscriptionDO.get(
         env.SubscriptionDO.idFromName(DO_NAME),
       );
-      const isSubscribed = await stub.isSubscribed(user.login);
 
-      // Update access token if user is subscribed
-      if (isSubscribed) {
-        const accessToken = getAccessToken(request);
-        if (accessToken) {
-          await stub.updateAccessToken(user.login, accessToken);
-        }
+      // Always store/update user and access token on dashboard visit
+      const accessToken = getAccessToken(request);
+      if (accessToken) {
+        await stub.upsertUser(user.login, accessToken);
       }
+
+      const isSubscribed = await stub.isSubscribed(user.login);
 
       const context = isSubscribed ? await stub.getContext(user.login) : null;
 
@@ -531,20 +533,13 @@ export default {
             Copy to Clipboard
           </button>
         </div>
-        <div class="text-sm text-gray-400 mb-4">
-          Public URL: <a href="/${
-            user.login
-          }" class="text-purple-400 hover:underline">context.forgithub.com/${
-            user.login
-          }</a>
-        </div>
         <pre id="context" class="bg-black/50 p-4 rounded overflow-x-auto text-sm">${context
           .replace(/</g, "&lt;")
           .replace(/>/g, "&gt;")}</pre>
       </div>
     `
         : isSubscribed
-          ? `
+        ? `
       <div class="bg-purple-900/30 border border-purple-800 p-6 rounded-lg">
         <div class="flex items-center gap-3 mb-4">
           <svg class="w-8 h-8 text-purple-400 animate-spin" fill="none" viewBox="0 0 24 24">
@@ -559,7 +554,7 @@ export default {
         <p class="text-sm text-gray-500">Refresh this page in a minute to see your context.</p>
       </div>
     `
-          : ""
+        : ""
     }
 
     <script>
@@ -591,24 +586,6 @@ export default {
       return new Response(html, { headers: { "Content-Type": "text/html" } });
     }
 
-    if (contextMatch && !path.startsWith("/api/") && path !== "/") {
-      const username = contextMatch[1];
-      const stub = env.SubscriptionDO.get(
-        env.SubscriptionDO.idFromName(DO_NAME),
-      );
-      const context = await stub.getContext(username);
-
-      if (!context) {
-        return new Response("User not subscribed or context not available", {
-          status: 404,
-        });
-      }
-
-      return new Response(context, {
-        headers: { "Content-Type": "text/markdown" },
-      });
-    }
-
     return new Response("Not Found", { status: 404 });
   },
 
@@ -635,8 +612,8 @@ export class SubscriptionDO extends DurableObject<Env> {
     this.sql.exec(`
       CREATE TABLE IF NOT EXISTS subscriptions (
         username TEXT PRIMARY KEY,
-        email TEXT NOT NULL,
-        subscribed_at INTEGER NOT NULL,
+        email TEXT,
+        subscribed_at INTEGER,
         access_token TEXT,
         context TEXT,
         context_updated_at INTEGER,
@@ -645,31 +622,33 @@ export class SubscriptionDO extends DurableObject<Env> {
     `);
   }
 
-  async addSubscription(username: string, email: string, stripeCustomerId?: string): Promise<void> {
+  async addSubscription(
+    username: string,
+    email: string,
+    stripeCustomerId?: string,
+  ): Promise<void> {
     const now = Date.now();
+    // User already exists from dashboard visit, just update with subscription details
     this.sql.exec(
-      `INSERT OR REPLACE INTO subscriptions (username, email, subscribed_at, context_updated_at, stripe_customer_id)
-       VALUES (?, ?, ?, ?, ?)`,
-      username,
+      `UPDATE subscriptions
+       SET email = ?, subscribed_at = ?, stripe_customer_id = ?, context_updated_at = 0
+       WHERE username = ?`,
       email,
       now,
-      0,
       stripeCustomerId || null,
+      username,
     );
-    // Trigger initial context calculation
+    // Trigger initial context calculation - access_token already exists
     await this.updateContext(username);
   }
 
   async removeSubscriptionByEmail(email: string): Promise<void> {
-    this.sql.exec(
-      "DELETE FROM subscriptions WHERE email = ?",
-      email,
-    );
+    this.sql.exec("DELETE FROM subscriptions WHERE email = ?", email);
   }
 
   async isSubscribed(username: string): Promise<boolean> {
     const result = this.sql.exec(
-      "SELECT username FROM subscriptions WHERE username = ?",
+      "SELECT username FROM subscriptions WHERE username = ? AND subscribed_at IS NOT NULL AND subscribed_at > 0",
       username,
     );
     return result.toArray().length > 0;
@@ -701,6 +680,17 @@ export class SubscriptionDO extends DurableObject<Env> {
       "UPDATE subscriptions SET access_token = ? WHERE username = ?",
       accessToken,
       username,
+    );
+  }
+
+  async upsertUser(username: string, accessToken: string): Promise<void> {
+    // Insert user if not exists, or update access token if exists
+    this.sql.exec(
+      `INSERT INTO subscriptions (username, access_token, context_updated_at)
+       VALUES (?, ?, 0)
+       ON CONFLICT(username) DO UPDATE SET access_token = excluded.access_token`,
+      username,
+      accessToken,
     );
   }
 
@@ -739,7 +729,7 @@ export class SubscriptionDO extends DurableObject<Env> {
 
       while (true) {
         const response = await fetch(
-          `https://api.github.com/user/repos?per_page=${perPage}&page=${page}&affiliation=owner,organization_member`,
+          `https://api.github.com/user/repos?per_page=${perPage}&page=${page}&affiliation=owner,organization_member&sort=pushed`,
           {
             headers: {
               Authorization: `Bearer ${accessToken}`,
@@ -766,7 +756,39 @@ export class SubscriptionDO extends DurableObject<Env> {
         page++;
       }
 
-      const context = this.formatContext(username, repos);
+      // Fetch all starred repositories
+      const starredRepos: any[] = [];
+      page = 1;
+
+      while (true) {
+        const response = await fetch(
+          `https://api.github.com/user/starred?per_page=${perPage}&page=${page}`,
+          {
+            headers: {
+              Authorization: `Bearer ${accessToken}`,
+              Accept: "application/vnd.github.v3+json",
+              "User-Agent": "Context-Subscription/1.0",
+            },
+          },
+        );
+
+        if (!response.ok) {
+          console.error(
+            `Failed to fetch starred repos for ${username}: ${response.status}`,
+          );
+          break; // Continue even if starred repos fail
+        }
+
+        const pageStarred = await response.json();
+        if (!Array.isArray(pageStarred) || pageStarred.length === 0) break;
+
+        starredRepos.push(...pageStarred);
+
+        if (pageStarred.length < perPage) break;
+        page++;
+      }
+
+      const context = this.formatContext(username, repos, starredRepos);
 
       this.sql.exec(
         "UPDATE subscriptions SET context = ?, context_updated_at = ? WHERE username = ?",
@@ -779,19 +801,37 @@ export class SubscriptionDO extends DurableObject<Env> {
     }
   }
 
-  private formatContext(username: string, repos: any[]): string {
+  private formatContext(
+    username: string,
+    repos: any[],
+    starredRepos: any[],
+  ): string {
     let context = `# Context for ${username}\n\n`;
     context += `Updated: ${new Date().toISOString()}\n`;
     context += `Total Repositories: ${repos.length}\n\n`;
 
     // Group repositories by category
-    const ownRepos: any[] = [];
+    const ownReposRecent: any[] = [];
+    const ownReposMedium: any[] = [];
+    const ownReposOlder: any[] = [];
     const forkedRepos: any[] = [];
     const orgRepos: { [org: string]: any[] } = {};
 
+    // Track user's orgs and own repos for filtering starred repos
+    const userOrgs = new Set<string>();
+    const userRepoFullNames = new Set<string>();
+
+    const now = Date.now();
+    const thirtyDaysAgo = now - 30 * 24 * 60 * 60 * 1000;
+    const sixMonthsAgo = now - 180 * 24 * 60 * 60 * 1000;
+
     for (const repo of repos) {
+      // Track all repo full names for filtering starred repos
+      userRepoFullNames.add(repo.full_name);
+
       if (repo.owner.type === "Organization") {
         const orgName = repo.owner.login;
+        userOrgs.add(orgName);
         if (!orgRepos[orgName]) {
           orgRepos[orgName] = [];
         }
@@ -799,17 +839,47 @@ export class SubscriptionDO extends DurableObject<Env> {
       } else if (repo.fork) {
         forkedRepos.push(repo);
       } else {
-        ownRepos.push(repo);
+        // Categorize own repos by update time
+        const pushedAt = new Date(repo.pushed_at).getTime();
+        if (pushedAt >= thirtyDaysAgo) {
+          ownReposRecent.push(repo);
+        } else if (pushedAt >= sixMonthsAgo) {
+          ownReposMedium.push(repo);
+        } else {
+          ownReposOlder.push(repo);
+        }
       }
     }
 
-    // Format own repositories
-    if (ownRepos.length > 0) {
-      context += `## Own Repositories (${ownRepos.length})\n\n`;
-      for (const repo of ownRepos) {
-        context += this.formatRepoInfo(repo);
+    // Format own repositories with time-based categories
+    const totalOwnRepos =
+      ownReposRecent.length + ownReposMedium.length + ownReposOlder.length;
+    if (totalOwnRepos > 0) {
+      context += `## Own Repositories (${totalOwnRepos})\n\n`;
+
+      if (ownReposRecent.length > 0) {
+        context += `### Updated in last 30 days (${ownReposRecent.length})\n\n`;
+        for (const repo of ownReposRecent) {
+          context += this.formatRepoInfo(repo);
+        }
+        context += "\n";
       }
-      context += "\n";
+
+      if (ownReposMedium.length > 0) {
+        context += `### Updated in last 6 months (${ownReposMedium.length})\n\n`;
+        for (const repo of ownReposMedium) {
+          context += this.formatRepoInfo(repo);
+        }
+        context += "\n";
+      }
+
+      if (ownReposOlder.length > 0) {
+        context += `### Older (${ownReposOlder.length})\n\n`;
+        for (const repo of ownReposOlder) {
+          context += this.formatRepoInfo(repo);
+        }
+        context += "\n";
+      }
     }
 
     // Format organization repositories
@@ -830,6 +900,33 @@ export class SubscriptionDO extends DurableObject<Env> {
     if (forkedRepos.length > 0) {
       context += `## Forked Repositories (${forkedRepos.length})\n\n`;
       for (const repo of forkedRepos) {
+        context += this.formatRepoInfo(repo);
+      }
+      context += "\n";
+    }
+
+    // Filter starred repos to exclude user's own repos and org repos
+    const filteredStarredRepos = starredRepos.filter((repo) => {
+      // Exclude if it's the user's own repo or in one of their orgs
+      if (userRepoFullNames.has(repo.full_name)) {
+        return false;
+      }
+      if (
+        repo.owner.type === "Organization" &&
+        userOrgs.has(repo.owner.login)
+      ) {
+        return false;
+      }
+      if (repo.owner.login === username) {
+        return false;
+      }
+      return true;
+    });
+
+    // Format starred repositories
+    if (filteredStarredRepos.length > 0) {
+      context += `## Starred Repositories (${filteredStarredRepos.length})\n\n`;
+      for (const repo of filteredStarredRepos) {
         context += this.formatRepoInfo(repo);
       }
       context += "\n";
