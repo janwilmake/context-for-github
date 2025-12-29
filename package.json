@@ -1,8 +1,8 @@
 {
   "devDependencies": {
-    "@cloudflare/workers-types": "^4.20250124.3"
+    "@cloudflare/workers-types": "^4.20251228.0"
   },
   "dependencies": {
-    "sponsorflare": "^0.2.3"
+    "stripe": "^20.1.0"
   }
 }

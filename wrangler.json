@@ -1,0 +1,16 @@
+{
+  "$schema": "https://unpkg.com/wrangler@latest/config-schema.json",
+  "name": "context-subscription",
+  "main": "worker.ts",
+  "compatibility_date": "2025-01-27",
+  "assets": { "directory": "./public" },
+  "observability": { "logs": { "enabled": true } },
+  "routes": [{ "pattern": "context.forgithub.com", "custom_domain": true }],
+  "durable_objects": {
+    "bindings": [{ "name": "SubscriptionDO", "class_name": "SubscriptionDO" }]
+  },
+  "migrations": [{ "tag": "v1", "new_sqlite_classes": ["SubscriptionDO"] }],
+  "triggers": {
+    "crons": ["0 2 * * *"]
+  }
+}

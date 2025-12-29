@@ -1,0 +1,171 @@
+<!DOCTYPE html>
+<html lang="en" class="bg-black">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Context for GitHub - Daily GitHub Context Updates</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <style>
+    @import url("https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap");
+    body { font-family: "Inter", sans-serif; }
+  </style>
+</head>
+<body class="text-gray-100">
+  <main class="max-w-6xl mx-auto px-4 py-8">
+    <!-- Header -->
+    <div class="flex justify-between items-center mb-12">
+      <h1 class="text-3xl font-bold bg-gradient-to-r from-purple-400 to-pink-600 bg-clip-text text-transparent">
+        Context for GitHub
+      </h1>
+      <a id="auth-button" href="/login" class="bg-gradient-to-r from-purple-500 to-pink-500 hover:from-purple-600 hover:to-pink-600 px-6 py-3 rounded-lg font-medium transition-colors">
+        Login with GitHub
+      </a>
+    </div>
+
+    <!-- Hero Section -->
+    <div class="text-center mb-16">
+      <h2 class="text-5xl font-bold mb-6 leading-tight">
+        Get Daily Context Updates<br>
+        <span class="bg-gradient-to-r from-purple-400 to-pink-600 bg-clip-text text-transparent">
+          For Your GitHub Profile
+        </span>
+      </h2>
+      <p class="text-xl text-gray-400 mb-8 max-w-2xl mx-auto">
+        Subscribe to receive comprehensive, automatically generated context about your GitHub repositories,
+        updated daily and accessible via a simple URL.
+      </p>
+      <a href="/login" class="inline-block bg-gradient-to-r from-purple-500 to-pink-500 hover:from-purple-600 hover:to-pink-600 px-8 py-4 rounded-lg font-semibold text-lg transition-colors">
+        Get Started - $10/month
+      </a>
+    </div>
+
+    <!-- Features -->
+    <div class="grid md:grid-cols-3 gap-8 mb-16">
+      <div class="bg-purple-900/30 border border-purple-800 p-6 rounded-lg">
+        <div class="text-purple-400 mb-4">
+          <svg class="w-12 h-12" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
+          </svg>
+        </div>
+        <h3 class="text-xl font-semibold mb-2">Daily Updates</h3>
+        <p class="text-gray-400">
+          Your context is automatically updated every day at 2 AM UTC with the latest information about your repositories.
+        </p>
+      </div>
+
+      <div class="bg-purple-900/30 border border-purple-800 p-6 rounded-lg">
+        <div class="text-purple-400 mb-4">
+          <svg class="w-12 h-12" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1"/>
+          </svg>
+        </div>
+        <h3 class="text-xl font-semibold mb-2">Simple URL</h3>
+        <p class="text-gray-400">
+          Access your context anytime at context.forgithub.com/yourusername - perfect for sharing with AI assistants.
+        </p>
+      </div>
+
+      <div class="bg-purple-900/30 border border-purple-800 p-6 rounded-lg">
+        <div class="text-purple-400 mb-4">
+          <svg class="w-12 h-12" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"/>
+          </svg>
+        </div>
+        <h3 class="text-xl font-semibold mb-2">Comprehensive</h3>
+        <p class="text-gray-400">
+          Get organized context about all your repositories, including owned and forked repos with descriptions.
+        </p>
+      </div>
+    </div>
+
+    <!-- How It Works -->
+    <div class="bg-purple-900/30 border border-purple-800 p-8 rounded-lg mb-16">
+      <h3 class="text-2xl font-bold mb-6 text-center">How It Works</h3>
+      <div class="grid md:grid-cols-4 gap-6">
+        <div class="text-center">
+          <div class="bg-purple-700 w-12 h-12 rounded-full flex items-center justify-center mx-auto mb-4 text-xl font-bold">1</div>
+          <h4 class="font-semibold mb-2">Sign In</h4>
+          <p class="text-sm text-gray-400">Login with your GitHub account</p>
+        </div>
+        <div class="text-center">
+          <div class="bg-purple-700 w-12 h-12 rounded-full flex items-center justify-center mx-auto mb-4 text-xl font-bold">2</div>
+          <h4 class="font-semibold mb-2">Subscribe</h4>
+          <p class="text-sm text-gray-400">Pay $10/month via Stripe</p>
+        </div>
+        <div class="text-center">
+          <div class="bg-purple-700 w-12 h-12 rounded-full flex items-center justify-center mx-auto mb-4 text-xl font-bold">3</div>
+          <h4 class="font-semibold mb-2">Get Context</h4>
+          <p class="text-sm text-gray-400">Your context is generated daily</p>
+        </div>
+        <div class="text-center">
+          <div class="bg-purple-700 w-12 h-12 rounded-full flex items-center justify-center mx-auto mb-4 text-xl font-bold">4</div>
+          <h4 class="font-semibold mb-2">Share & Use</h4>
+          <p class="text-sm text-gray-400">Access via your personal URL</p>
+        </div>
+      </div>
+    </div>
+
+    <!-- Pricing -->
+    <div class="text-center mb-16">
+      <h3 class="text-3xl font-bold mb-8">Simple Pricing</h3>
+      <div class="max-w-md mx-auto bg-purple-900/30 border border-purple-800 p-8 rounded-lg">
+        <div class="text-5xl font-bold mb-2">$10<span class="text-2xl text-gray-400">/mo</span></div>
+        <p class="text-gray-400 mb-6">Everything you need</p>
+        <ul class="text-left space-y-3 mb-8">
+          <li class="flex items-center gap-2">
+            <svg class="w-5 h-5 text-green-400" fill="currentColor" viewBox="0 0 20 20">
+              <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"/>
+            </svg>
+            <span>Daily automated updates</span>
+          </li>
+          <li class="flex items-center gap-2">
+            <svg class="w-5 h-5 text-green-400" fill="currentColor" viewBox="0 0 20 20">
+              <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"/>
+            </svg>
+            <span>Public URL access</span>
+          </li>
+          <li class="flex items-center gap-2">
+            <svg class="w-5 h-5 text-green-400" fill="currentColor" viewBox="0 0 20 20">
+              <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"/>
+            </svg>
+            <span>All repositories included</span>
+          </li>
+          <li class="flex items-center gap-2">
+            <svg class="w-5 h-5 text-green-400" fill="currentColor" viewBox="0 0 20 20">
+              <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"/>
+            </svg>
+            <span>Cancel anytime</span>
+          </li>
+        </ul>
+        <a href="/login" class="block bg-gradient-to-r from-purple-500 to-pink-500 hover:from-purple-600 hover:to-pink-600 px-6 py-3 rounded-lg font-semibold transition-colors">
+          Get Started Now
+        </a>
+      </div>
+    </div>
+
+    <!-- Footer -->
+    <div class="text-center text-gray-500 text-sm">
+      <p>&copy; 2025 Context for GitHub. Powered by Cloudflare Workers.</p>
+    </div>
+  </main>
+
+  <script>
+    // Check if user is logged in and update button
+    async function checkAuth() {
+      try {
+        const response = await fetch('/api/user');
+        if (response.ok) {
+          const user = await response.json();
+          const authButton = document.getElementById('auth-button');
+          authButton.textContent = 'Dashboard';
+          authButton.href = '/dashboard';
+        }
+      } catch (error) {
+        // User not logged in, keep default login button
+      }
+    }
+
+    checkAuth();
+  </script>
+</body>
+</html>
