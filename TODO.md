@@ -1,10 +1,13 @@
 # TODO
 
-Feedabck bruna
+Feedabck Bruna
 
-- Add starcount
-- Come up with examples and add buttons to easily prompt that to dashboard
-  - Make available at secret, yet public, url
+- ✅ Add starcount
+- ✅ Make available at secret, yet public, url
+- ✅ Come up with examples and add buttons to easily prompt that to dashboard
+- Recent Active PRs (by you, for you to review, and by others for your repos)
+- Organisation repos not shown... need additional permission.
+- Use task api for each repo to gather a summary of it
 
 Make X post
 
@@ -14,13 +17,9 @@ I've been hacking together context.forgithub.com today, a little piece of contex
 - Never a problem
 ```
 
-Organisation repos not shown... why?
-
 MCP (add it as a resource in an authenticated MCP, so it can easily be selected in many clients).
 
 Maybe: LLM prompt over this
-
-Think about how to further make it useful
 
 # Backlog
 
